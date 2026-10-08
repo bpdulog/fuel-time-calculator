@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Compare estimated fuel costs and travel times at different driving speeds. Find out what those minutes really cost.">
+  <meta name="theme-color" content="#204d3c">
+  <title>Worth the rush? · Fuel & time calculator</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="calculator.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="site-header"><a class="brand" href="./"><span class="brand-icon" aria-hidden="true">↗</span> MILE & MINUTE</a><span class="header-note">A little math for the open road</span></header>
+  <main>
+    <section class="intro">
+      <p class="eyebrow">THE SPEED / SAVINGS TRADE-OFF</p>
+      <h1>Worth the <em>rush?</em></h1>
+      <p class="lead">A few extra miles per hour can cost more than you think. Compare your fuel bill with the minutes you save.</p>
+    </section>
+    <div class="workspace">
+      <aside class="card trip-card">
+        <div class="section-title"><h2>Your trip</h2><span class="step">01 / INPUTS</span></div>
+        <form id="trip-form">
+          <label for="distance">Trip distance</label><div class="input-wrap"><input id="distance" name="distance" type="number" min="1" max="100000" step="any" value="300" required><span>miles</span></div>
+          <label for="mpg">Base fuel economy</label><div class="input-wrap"><input id="mpg" name="mpg" type="number" min="1" max="200" step="any" value="28" required aria-describedby="mpg-help"><span>mpg</span></div>
+          <p class="field-help" id="mpg-help">Model input before speed adjustments; not the MPG at your baseline speed.</p>
+          <label for="price">Fuel price</label><div class="input-wrap"><span class="prefix">$</span><input id="price" name="price" type="number" min="0" max="100" step="any" value="3.50" required><span>/ gallon</span></div>
+          <label for="baseline">Compare against</label><div class="input-wrap select-wrap"><select id="baseline" name="baseline" aria-label="Baseline speed"><option value="45">45 mph</option><option value="50">50 mph</option><option value="55">55 mph</option><option value="60">60 mph</option><option value="65">65 mph</option><option value="70" selected>70 mph</option><option value="75">75 mph</option><option value="80">80 mph</option></select></div>
+          <p id="input-error" class="error" role="alert" hidden></p>
+          <button type="reset" class="text-button">↺ Reset to defaults</button>
+        </form>
+        <div class="baseline-box"><p class="eyebrow">YOUR BASELINE TRIP</p><div><strong id="baseline-cost">—</strong><span id="baseline-time">—</span></div><p id="baseline-detail">Calculating…</p></div>
+      </aside>
+      <section class="results-area" aria-label="Trip comparison">
+        <div class="card comparison-card">
+          <div class="section-title"><h2>Find your cruising speed</h2><span class="step">02 / COMPARE</span></div>
+          <div class="speed-heading"><span>What happens at</span><strong><span id="selected-speed">65</span> <small>mph</small></strong><span id="speed-tag" class="pill">5 mph slower</span></div>
+          <div id="speed-buttons" class="speed-buttons" role="group" aria-label="Choose a speed to compare"></div>
+          <div class="metrics" aria-live="polite" aria-atomic="true">
+            <div><p id="cost-label">Fuel savings</p><strong id="cost-delta">—</strong><span id="selected-cost">—</span></div>
+            <div><p id="time-label">Extra travel time</p><strong id="time-delta">—</strong><span id="selected-time">—</span></div>
+            <div><p id="value-label">Savings per extra hour</p><strong id="time-value">—</strong><span id="selected-mpg">—</span></div>
+          </div>
+          <p id="insight" class="insight">Adjust your trip to explore the trade-off.</p>
+        </div>
+        <div class="card chart-card">
+          <div class="section-title"><div><h2>The cost of speed</h2><p class="muted">Estimated fuel cost across your trip</p></div><span class="chart-key"><i></i> Fuel cost</span></div>
+          <div id="chart" class="chart"></div>
+          <p class="chart-caption">Select a speed above or a row below to see its trade-off.</p>
+        </div>
+      </section>
+    </div>
+    <section class="card table-card">
+      <div class="section-title"><div><h2>Every speed, side by side</h2><p class="muted">All differences are relative to <span id="table-baseline">70</span> mph.</p></div><button id="export" class="export-button" type="button">↓ Export CSV</button></div>
+      <div class="table-scroll"><table><caption class="sr-only">Estimated speed, fuel economy, trip duration, fuel cost, gallons, savings, extra time, and hourly savings compared with your baseline.</caption><thead><tr><th scope="col">Speed</th><th scope="col">Est. MPG</th><th scope="col">Trip time</th><th scope="col">Fuel cost</th><th scope="col">Gallons</th><th scope="col">Savings <small>vs baseline</small></th><th scope="col">Extra time <small>vs baseline</small></th><th scope="col">Savings / extra hr</th></tr></thead><tbody id="results-table"></tbody></table></div>
+      <p class="table-note">Negative savings mean higher fuel cost. Negative extra time means a shorter trip. Hourly savings apply only to slower trips.</p>
+    </section>
+    <details class="model-notes"><summary>How the estimates work</summary><div>
+      <p>This calculator uses the supplied speed-efficiency model: 1.05 × base MPG at 45–50 mph, 1.12 × at 55 mph, then <code>1.12 × (1 − 0.018d − 0.0004d²)</code> above 55 mph, where <code>d = speed − 55</code>. Estimated economy has a floor of 10 MPG.</p>
+      <p>Travel time is distance ÷ speed. Fuel cost is distance ÷ estimated MPG × fuel price. As in the original Python calculation, costs and minutes are rounded before calculating baseline differences. Savings per extra hour is fuel savings divided by additional travel hours.</p>
+      <p>The supplied formula is an illustrative estimate, not a validated prediction for your vehicle. Actual results depend on traffic, terrain, wind, vehicle, and driving conditions. Trip times assume a constant speed without stops. Choose speeds appropriate to posted limits and conditions.</p>
+    </div></details>
+  </main>
+  <footer><span>MILE & MINUTE</span><p>More perspective. Fewer surprises at the pump.</p><span>All calculations stay in your browser.</span></footer>
+  <noscript><p class="noscript">Enable JavaScript to use the fuel and time calculator.</p></noscript>
+</body>
+</html>
