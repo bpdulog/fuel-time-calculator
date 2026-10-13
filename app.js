@@ -1,9 +1,13 @@
 'use strict';
 (() => {
-  const { SPEEDS, calculate, toCsv } = window.FuelCalculator;
+  const { SPEEDS, calculate, toCsv, displayRow, KM_PER_MILE, LITERS_PER_GALLON, ECONOMY_FACTOR } = window.FuelCalculator;
   const $ = id => document.getElementById(id);
   const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   const number = value => new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(value);
+  let metric = false;
+  const speedValue = speed => number(metric ? speed * KM_PER_MILE : speed);
+  const speedUnit = () => metric ? 'km/h' : 'mph';
+  const economy = row => `${displayRow(row, metric).mpg.toFixed(1)} ${metric ? 'L/100 km' : 'MPG'}`;
   let selectedSpeed = 65;
   let rows = [];
   let baselineSpeed = 70;
@@ -35,23 +39,23 @@
       const label = cost < 100 ? money(cost) : `$${number(cost)}`;
       return `<line x1="${left}" y1="${ordinate}" x2="${width - right}" y2="${ordinate}" stroke="#e5e7dd" stroke-dasharray="3 5"/><text x="${left - 9}" y="${ordinate + 4}" text-anchor="end">${label}</text>`;
     }).join('');
-    const ticks = rows.map(row => `<text x="${x(row.speed)}" y="${height - 14}" text-anchor="middle">${row.speed}</text>`).join('');
+    const ticks = rows.map(row => `<text x="${x(row.speed)}" y="${height - 14}" text-anchor="middle">${speedValue(row.speed)}</text>`).join('');
     const dots = rows.map(row => `<circle cx="${x(row.speed)}" cy="${y(row.cost)}" r="${row.speed === selectedSpeed ? 6 : 3.5}" fill="${row.speed === selectedSpeed ? '#204d3c' : '#fffefa'}" stroke="#204d3c" stroke-width="2"/>`).join('');
     const selected = rows.find(row => row.speed === selectedSpeed);
     const anchor = selectedSpeed === 80 ? 'end' : selectedSpeed === 45 ? 'start' : 'middle';
-    $('chart').innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">Fuel cost by driving speed</title><desc id="chart-desc">At ${selectedSpeed} mph, estimated fuel cost is ${money(selected.cost)}. Full values are available in the comparison table.</desc><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a6be77" stop-opacity=".3"/><stop offset="100%" stop-color="#a6be77" stop-opacity="0"/></linearGradient></defs>${grid}<polygon points="${left},${height-bottom} ${points} ${width-right},${height-bottom}" fill="url(#area)"/><line x1="${x(baselineSpeed)}" x2="${x(baselineSpeed)}" y1="${top}" y2="${height-bottom}" stroke="#aeb8a8" stroke-dasharray="4 4"/><polyline points="${points}" fill="none" stroke="#204d3c" stroke-width="2.5" stroke-linejoin="round"/>${dots}<text class="point-label" x="${x(selectedSpeed)}" y="${y(selected.cost)-13}" text-anchor="${anchor}">${money(selected.cost)}</text>${ticks}</svg>`;
+    $('chart').innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">Fuel cost by driving speed</title><desc id="chart-desc">At ${speedValue(selectedSpeed)} ${speedUnit()}, estimated fuel cost is ${money(selected.cost)}. Full values are available in the comparison table.</desc><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a6be77" stop-opacity=".3"/><stop offset="100%" stop-color="#a6be77" stop-opacity="0"/></linearGradient></defs>${grid}<polygon points="${left},${height-bottom} ${points} ${width-right},${height-bottom}" fill="url(#area)"/><line x1="${x(baselineSpeed)}" x2="${x(baselineSpeed)}" y1="${top}" y2="${height-bottom}" stroke="#aeb8a8" stroke-dasharray="4 4"/><polyline points="${points}" fill="none" stroke="#204d3c" stroke-width="2.5" stroke-linejoin="round"/>${dots}<text class="point-label" x="${x(selectedSpeed)}" y="${y(selected.cost)-13}" text-anchor="${anchor}">${money(selected.cost)}</text>${ticks}</svg>`;
   }
   function render() {
     if (!valid) return;
     const selected = rows.find(row => row.speed === selectedSpeed);
     const baseline = rows.find(row => row.speed === baselineSpeed);
-    $('selected-speed').textContent = selectedSpeed;
+    $('selected-speed').textContent = speedValue(selectedSpeed);
     const diff = selectedSpeed - baselineSpeed;
-    $('speed-tag').textContent = diff === 0 ? 'Your baseline' : `${Math.abs(diff)} mph ${diff < 0 ? 'slower' : 'faster'}`;
-    speedButtons.forEach((button, index) => button.setAttribute('aria-pressed', String(SPEEDS[index] === selectedSpeed)));
+    $('speed-tag').textContent = diff === 0 ? 'Your baseline' : `${speedValue(Math.abs(diff))} ${speedUnit()} ${diff < 0 ? 'slower' : 'faster'}`;
+    speedButtons.forEach((button, index) => { button.textContent = speedValue(SPEEDS[index]); button.setAttribute('aria-label', `Compare ${speedValue(SPEEDS[index])} ${speedUnit()}`); button.setAttribute('aria-pressed', String(SPEEDS[index] === selectedSpeed)); });
     $('baseline-cost').textContent = money(baseline.cost);
     $('baseline-time').textContent = baseline.duration;
-    $('baseline-detail').textContent = `${baselineSpeed} mph · ${baseline.mpg.toFixed(1)} MPG · ${baseline.gallons.toFixed(2)} gallons`;
+    $('baseline-detail').textContent = `${speedValue(baselineSpeed)} ${speedUnit()} ? ${economy(baseline)} ? ${displayRow(baseline, metric).gallons.toFixed(2)} ${metric ? 'liters' : 'US gallons'}`;
     $('cost-label').textContent = selected.savings < 0 ? 'Extra fuel cost' : 'Fuel savings';
     $('cost-delta').textContent = money(Math.abs(selected.savings));
     $('cost-delta').className = selected.savings < 0 ? 'negative' : 'positive';
@@ -64,20 +68,20 @@
     const hourly = faster ? -selected.savings / (-selected.extraMinutes / 60) : selected.hourlyValue;
     $('value-label').textContent = faster ? 'Cost per hour saved' : 'Savings per extra hour';
     $('time-value').textContent = slower || faster ? `${money(hourly)}/hr` : '—';
-    $('selected-mpg').textContent = `${selected.mpg.toFixed(1)} estimated MPG`;
+    $('selected-mpg').textContent = `${economy(selected)} estimated`;
     $('insight').textContent = slower
-      ? `At ${selectedSpeed} mph, you ${selected.savings >= 0 ? 'save' : 'spend an extra'} ${money(Math.abs(selected.savings))} and add ${number(selected.extraMinutes)} minutes versus ${baselineSpeed} mph. That's ${money(selected.hourlyValue)} in fuel savings per extra hour on the road.`
+      ? `At ${speedValue(selectedSpeed)} ${speedUnit()}, you ${selected.savings >= 0 ? 'save' : 'spend an extra'} ${money(Math.abs(selected.savings))} and add ${number(selected.extraMinutes)} minutes versus ${speedValue(baselineSpeed)} ${speedUnit()}. That's ${money(selected.hourlyValue)} in fuel savings per extra hour on the road.`
       : faster
-      ? `At ${selectedSpeed} mph, you save ${number(-selected.extraMinutes)} minutes and ${selected.savings <= 0 ? 'spend an extra' : 'save'} ${money(Math.abs(selected.savings))} versus ${baselineSpeed} mph. ${hourly >= 0 ? 'Those minutes cost' : 'Fuel savings are'} ${money(Math.abs(hourly))} per hour saved.`
+      ? `At ${speedValue(selectedSpeed)} ${speedUnit()}, you save ${number(-selected.extraMinutes)} minutes and ${selected.savings <= 0 ? 'spend an extra' : 'save'} ${money(Math.abs(selected.savings))} versus ${speedValue(baselineSpeed)} ${speedUnit()}. ${hourly >= 0 ? 'Those minutes cost' : 'Fuel savings are'} ${money(Math.abs(hourly))} per hour saved.`
       : `This is your baseline: ${money(selected.cost)} in fuel for a ${selected.duration} trip. Select another speed to compare the difference.`;
-    $('table-baseline').textContent = baselineSpeed;
-    $('results-table').innerHTML = rows.map(row => `<tr class="${row.speed === selectedSpeed ? 'selected' : ''}"><td><button class="row-speed" type="button" data-speed="${row.speed}" aria-label="Compare ${row.speed} miles per hour" aria-pressed="${row.speed === selectedSpeed}">${row.speed} mph</button>${row.speed === baselineSpeed ? '<span class="row-tag">BASE</span>' : ''}</td><td>${row.mpg.toFixed(1)}</td><td>${row.duration}</td><td>${money(row.cost)}</td><td>${row.gallons.toFixed(2)}</td><td class="${row.savings < 0 ? 'negative' : row.savings > 0 ? 'positive' : ''}">${money(row.savings)}</td><td>${row.extraMinutes > 0 ? '+' : ''}${row.extraMinutes.toFixed(1)} min</td><td>${row.extraMinutes > 0 ? money(row.hourlyValue) : '—'}</td></tr>`).join('');
+    $('table-baseline').textContent = speedValue(baselineSpeed);
+    $('results-table').innerHTML = rows.map(row => `<tr class="${row.speed === selectedSpeed ? 'selected' : ''}"><td><button class="row-speed" type="button" data-speed="${row.speed}" aria-label="Compare ${speedValue(row.speed)} ${speedUnit()}" aria-pressed="${row.speed === selectedSpeed}">${speedValue(row.speed)} ${speedUnit()}</button>${row.speed === baselineSpeed ? '<span class="row-tag">BASE</span>' : ''}</td><td>${displayRow(row, metric).mpg.toFixed(1)}</td><td>${row.duration}</td><td>${money(row.cost)}</td><td>${displayRow(row, metric).gallons.toFixed(2)}</td><td class="${row.savings < 0 ? 'negative' : row.savings > 0 ? 'positive' : ''}">${money(row.savings)}</td><td>${row.extraMinutes > 0 ? '+' : ''}${row.extraMinutes.toFixed(1)} min</td><td>${row.extraMinutes > 0 ? money(row.hourlyValue) : '—'}</td></tr>`).join('');
     drawChart();
   }
   function update() {
     try {
       baselineSpeed = Number($('baseline').value);
-      rows = calculate({ distance: $('distance').valueAsNumber, baseMpg: $('mpg').valueAsNumber, fuelPrice: $('price').valueAsNumber, baseline: baselineSpeed });
+      rows = calculate({ distance: $('distance').valueAsNumber / (metric ? KM_PER_MILE : 1), baseMpg: metric ? ECONOMY_FACTOR / $('mpg').valueAsNumber : $('mpg').valueAsNumber, fuelPrice: $('price').valueAsNumber * (metric ? LITERS_PER_GALLON : 1), baseline: baselineSpeed });
       valid = true;
       $('input-error').hidden = true;
       $('export').disabled = false;
@@ -87,7 +91,7 @@
       render();
     } catch (error) {
       valid = false;
-      $('input-error').textContent = `${error.message} Results below show the last valid inputs.`;
+      $('input-error').textContent = `${metric ? 'Enter valid values within the distance, L/100 km, and price-per-liter limits.' : error.message} Results below show the last valid inputs.`;
       $('input-error').hidden = false;
       $('export').disabled = true;
       speedButtons.forEach(button => { button.disabled = true; });
@@ -95,9 +99,9 @@
       document.querySelectorAll('.results-area, .table-card').forEach(element => { element.style.opacity = '.5'; });
     }
   }
-  $('trip-form').addEventListener('input', update);
+  $('trip-form').addEventListener('input', event => { if (event.target.id !== 'units' && !event.target.id.startsWith('vehicle-')) update(); });
   $('trip-form').addEventListener('submit', event => event.preventDefault());
-  $('trip-form').addEventListener('reset', () => { selectedSpeed = 65; setTimeout(update, 0); });
+  $('trip-form').addEventListener('reset', () => { selectedSpeed = 65; metric = false; resetVehicle(); setTimeout(() => { unitLabels(); update(); }, 0); });
   $('results-table').addEventListener('click', event => {
     const button = event.target.closest('button[data-speed]');
     if (!button || !valid) return;
@@ -107,14 +111,102 @@
   });
   $('export').addEventListener('click', () => {
     if (!valid) return;
-    const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8;' }));
+    const url = URL.createObjectURL(new Blob([toCsv(rows, metric)], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `fuel-time-comparison-${baselineSpeed}mph-baseline.csv`;
+    link.download = `fuel-time-comparison-${speedValue(baselineSpeed)}${metric ? 'kmh' : 'mph'}-baseline.csv`;
     document.body.append(link);
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  const vehicleFields = ['year', 'make', 'model', 'options'];
+  let lookupController;
+  let retryLookup = () => loadVehicle(0);
+  function clearMenu(index) {
+    const select = $(`vehicle-${vehicleFields[index]}`);
+    select.replaceChildren(new Option(`Choose ${index === 3 ? 'configuration' : vehicleFields[index]}`, ''));
+    select.disabled = true;
+  }
+  function resetVehicle() {
+    lookupController?.abort();
+    vehicleFields.slice(1).forEach((_, index) => clearMenu(index + 1));
+    $('vehicle-status').textContent = 'Choose your vehicle to use its EPA combined MPG as an editable starting estimate.';
+    $('vehicle-retry').hidden = true;
+  }
+  async function loadVehicle(index) {
+    lookupController?.abort();
+    const controller = new AbortController();
+    lookupController = controller;
+    const timer = setTimeout(() => controller.abort(new Error('Vehicle lookup timed out.')), 15000);
+    retryLookup = () => loadVehicle(index);
+    $('vehicle-retry').hidden = true;
+    $('vehicle-status').textContent = 'Loading vehicle data?';
+    try {
+      const query = new URLSearchParams();
+      for (let i = 0; i < Math.min(index, 3); i++) query.set(vehicleFields[i], $(`vehicle-${vehicleFields[i]}`).value);
+      const endpoint = index === 4 ? `vehicle/${encodeURIComponent($('vehicle-options').value)}` : `vehicle/menu/${vehicleFields[index]}?${query}`;
+      const response = await fetch(`https://www.fueleconomy.gov/ws/rest/${endpoint}`, { headers: { Accept: 'application/json' }, signal: controller.signal });
+      if (!response.ok) throw new Error('Vehicle service unavailable.');
+      const data = await response.json();
+      if (lookupController !== controller) return;
+      if (index === 4) {
+        const mpg = Number(data.comb08);
+        if (!Number.isFinite(mpg) || mpg < 1 || mpg > 200 || /electricity|hydrogen|natural gas/i.test(data.fuelType1 || '')) {
+          $('vehicle-status').textContent = 'This vehicle uses a fuel or energy unit this calculator does not support. Your manual fuel economy is unchanged.';
+          return;
+        }
+        $('mpg').value = metric ? ECONOMY_FACTOR / mpg : mpg;
+        $('vehicle-status').textContent = `Using EPA combined ${mpg} MPG (${data.fuelType1 || 'primary fuel'}) as your base estimate. You can edit it below.`;
+        update();
+      } else {
+        const items = data.menuItem ? (Array.isArray(data.menuItem) ? data.menuItem : [data.menuItem]) : [];
+        clearMenu(index);
+        const select = $(`vehicle-${vehicleFields[index]}`);
+        items.forEach(item => select.add(new Option(item.text, item.value)));
+        select.disabled = items.length === 0;
+        $('vehicle-status').textContent = items.length ? 'Choose your vehicle to fill in base fuel economy.' : 'No vehicles found. You can enter fuel economy manually.';
+      }
+    } catch (error) {
+      if (lookupController !== controller || (controller.signal.aborted && !controller.signal.reason?.message?.includes('timed out'))) return;
+      $('vehicle-status').textContent = 'Vehicle lookup unavailable. Retry or enter fuel economy manually.';
+      $('vehicle-retry').hidden = false;
+    } finally { clearTimeout(timer); }
+  }
+  vehicleFields.forEach((field, index) => {
+    $(`vehicle-${field}`).addEventListener('change', () => {
+      lookupController?.abort();
+      vehicleFields.forEach((_, child) => { if (child > index) clearMenu(child); });
+      if ($(`vehicle-${field}`).value) loadVehicle(index + 1);
+      else { $('vehicle-status').textContent = 'Choose your vehicle to fill in base fuel economy.'; $('vehicle-retry').hidden = true; }
+    });
+  });
+  $('vehicle-retry').addEventListener('click', () => retryLookup());
+  document.querySelector('.vehicle-picker').addEventListener('toggle', event => {
+    if (event.target.open && $('vehicle-year').options.length === 1) loadVehicle(0);
+  });
+  function unitLabels() {
+    $('distance-unit').textContent = metric ? 'km' : 'miles';
+    $('economy-unit').textContent = metric ? 'L/100 km' : 'mpg';
+    $('price-unit').textContent = metric ? '/ liter' : '/ US gallon';
+    $('economy-heading').textContent = metric ? 'Est. L/100 km' : 'Est. MPG';
+    $('volume-heading').textContent = metric ? 'Liters' : 'US gallons';
+    document.querySelectorAll('.speed-unit').forEach(el => { el.textContent = speedUnit(); });
+    [...$('baseline').options].forEach(option => { option.textContent = `${speedValue(Number(option.value))} ${speedUnit()}`; });
+    for (const [id, min, max] of [['distance', 1, 100000], ['mpg', 1, 200], ['price', 0, 100]]) {
+      const factor = id === 'distance' ? KM_PER_MILE : id === 'price' ? 1 / LITERS_PER_GALLON : 1;
+      $(id).min = metric ? (id === 'mpg' ? ECONOMY_FACTOR / max : min * factor) : min;
+      $(id).max = metric ? (id === 'mpg' ? ECONOMY_FACTOR / min : max * factor) : max;
+    }
+  }
+  $('units').addEventListener('change', () => {
+    const next = $('units').value === 'metric';
+    if (next === metric) return;
+    for (const [id, factor] of [['distance', KM_PER_MILE], ['price', 1 / LITERS_PER_GALLON]]) {
+      if (Number.isFinite($(id).valueAsNumber)) $(id).value = $(id).valueAsNumber * (next ? factor : 1 / factor);
+    }
+    if ($('mpg').valueAsNumber > 0) $('mpg').value = ECONOMY_FACTOR / $('mpg').valueAsNumber;
+    metric = next; unitLabels(); update();
   });
   update();
 })();

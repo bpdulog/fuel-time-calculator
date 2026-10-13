@@ -70,6 +70,24 @@ async function main() {
     assert.equal(await evaluate(`document.querySelector('#cost-delta').textContent`), '$0.00');
     assert.equal(await evaluate(`document.querySelector('#chart').innerHTML.includes('NaN')`), false);
     await evaluate(`document.querySelector('#trip-form').reset(); new Promise(resolve => setTimeout(resolve,20))`);
+    await evaluate(`document.querySelector('#units').value = 'metric'; document.querySelector('#units').dispatchEvent(new Event('change'))`);
+    assert.equal(await evaluate(`document.querySelector('#cost-delta').textContent`), '$9.39');
+    assert.equal(await evaluate(`document.querySelector('#time-delta').textContent`), '19.8 min');
+    assert.equal(await evaluate(`document.querySelector('#volume-heading').textContent`), 'Liters');
+    assert.equal(await evaluate(`document.querySelector('#baseline-detail').textContent.includes('liters')`), true);
+    assert.equal(await evaluate(`document.querySelector('#selected-speed').textContent`), '104.6');
+    assert.ok(Math.abs(await evaluate(`document.querySelector('#distance').valueAsNumber`) - 482.8032) < 0.00001);
+    await evaluate(`window.fetch = async url => ({ok: true, json: async () => url.includes('menu/year') ? {menuItem: {text:'2024', value:'2024'}} : url.includes('menu/make') ? {menuItem: {text:'Toyota', value:'Toyota'}} : url.includes('menu/model') ? {menuItem: {text:'Camry', value:'Camry'}} : url.includes('menu/options') ? {menuItem: {text:'Automatic', value:'123'}} : {comb08:32, fuelType1:'Regular Gasoline'}}); document.querySelector('.vehicle-picker').open = true; new Promise(resolve => setTimeout(resolve,30))`);
+    for (const [field, value] of [['year','2024'], ['make','Toyota'], ['model','Camry'], ['options','123']]) {
+      await evaluate(`document.querySelector('#vehicle-${field}').value = '${value}'; document.querySelector('#vehicle-${field}').dispatchEvent(new Event('change')); new Promise(resolve => setTimeout(resolve,20))`);
+    }
+    assert.ok(Math.abs(await evaluate(`document.querySelector('#mpg').valueAsNumber`) - 235.214583 / 32) < 0.0001);
+    assert.equal(await evaluate(`document.querySelector('#vehicle-status').textContent.includes('32 MPG')`), true);
+    await evaluate(`window.fetch = async () => {throw new Error('offline')}; document.querySelector('#vehicle-options').dispatchEvent(new Event('change')); new Promise(resolve => setTimeout(resolve,20))`);
+    assert.equal(await evaluate(`document.querySelector('#vehicle-retry').hidden`), false);
+    await evaluate(`document.querySelector('#trip-form').reset(); new Promise(resolve => setTimeout(resolve,20))`);
+    assert.equal(await evaluate(`document.querySelector('#volume-heading').textContent`), 'US gallons');
+    assert.equal(await evaluate(`document.querySelector('#cost-delta').textContent`), '$9.39');
     const desktop = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
     const screenshotPath = path.join(tempRoot, 'fuel-time-calculator-desktop.png');
     fs.writeFileSync(screenshotPath, Buffer.from(desktop.data, 'base64'));

@@ -63,3 +63,15 @@ test('CSV contains every metric, negative deltas, and Python-style hourly zeros'
   assert.equal(lines[5], '65,24.5,4h 36m,276.9,42.93,12.26,9.39,19.8,28.45');
   assert.equal(lines[8], '80,10.0,3h 45m,225.0,105.00,30.00,-52.68,-32.1,0.00');
 });
+
+test('metric CSV converts speed, economy, and volume while preserving costs and times', () => {
+  const lines = toCsv(calculate(), true).trim().split('\r\n');
+  assert.ok(lines[0].includes('Speed (km/h),Est L/100 km'));
+  assert.ok(lines[0].includes('Liters'));
+  const values = lines[5].split(',');
+  assert.equal(values[0], '104.6');
+  assert.equal(values[1], '9.6');
+  assert.equal(values[2], '4h 36m');
+  assert.equal(values[4], '42.93');
+  assert.equal(values[5], '46.41');
+});

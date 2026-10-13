@@ -17,16 +17,26 @@
     <section class="intro">
       <p class="eyebrow">THE SPEED / SAVINGS TRADE-OFF</p>
       <h1>Worth the <em>rush?</em></h1>
-      <p class="lead">A few extra miles per hour can cost more than you think. Compare your fuel bill with the minutes you save.</p>
+      <p class="lead">A little extra speed can cost more than you think. Compare your fuel bill with the minutes you save.</p>
     </section>
     <div class="workspace">
       <aside class="card trip-card">
         <div class="section-title"><h2>Your trip</h2><span class="step">01 / INPUTS</span></div>
         <form id="trip-form">
-          <label for="distance">Trip distance</label><div class="input-wrap"><input id="distance" name="distance" type="number" min="1" max="100000" step="any" value="300" required><span>miles</span></div>
-          <label for="mpg">Base fuel economy</label><div class="input-wrap"><input id="mpg" name="mpg" type="number" min="1" max="200" step="any" value="28" required aria-describedby="mpg-help"><span>mpg</span></div>
+          <label for="units">Units</label><div class="input-wrap"><select id="units"><option value="us">Miles / US gallons</option><option value="metric">Kilometers / liters</option></select></div>
+          <details class="vehicle-picker"><summary>Use my vehicle?s fuel economy</summary>
+            <label for="vehicle-year">Model year</label><div class="input-wrap"><select id="vehicle-year"><option value="">Choose year</option></select></div>
+            <label for="vehicle-make">Make</label><div class="input-wrap"><select id="vehicle-make" disabled><option value="">Choose make</option></select></div>
+            <label for="vehicle-model">Model</label><div class="input-wrap"><select id="vehicle-model" disabled><option value="">Choose model</option></select></div>
+            <label for="vehicle-options">Engine / transmission</label><div class="input-wrap"><select id="vehicle-options" disabled><option value="">Choose configuration</option></select></div>
+            <p id="vehicle-status" class="field-help" role="status">Choose your vehicle to use its EPA combined MPG as an editable starting estimate.</p>
+            <button id="vehicle-retry" type="button" class="text-button" hidden>Retry vehicle lookup</button>
+            <p class="field-help">Data: <a href="https://www.fueleconomy.gov/feg/ws/index.shtml" target="_blank" rel="noopener">FuelEconomy.gov</a>. Internet required. The speed model remains illustrative.</p>
+          </details>
+          <label for="distance">Trip distance</label><div class="input-wrap"><input id="distance" name="distance" type="number" min="1" max="100000" step="any" value="300" required><span id="distance-unit">miles</span></div>
+          <label for="mpg">Base fuel economy</label><div class="input-wrap"><input id="mpg" name="mpg" type="number" min="1" max="200" step="any" value="28" required aria-describedby="mpg-help"><span id="economy-unit">mpg</span></div>
           <p class="field-help" id="mpg-help">Model input before speed adjustments; not the MPG at your baseline speed.</p>
-          <label for="price">Fuel price</label><div class="input-wrap"><span class="prefix">$</span><input id="price" name="price" type="number" min="0" max="100" step="any" value="3.50" required><span>/ gallon</span></div>
+          <label for="price">Fuel price</label><div class="input-wrap"><span class="prefix">$</span><input id="price" name="price" type="number" min="0" max="100" step="any" value="3.50" required><span id="price-unit">/ US gallon</span></div>
           <label for="baseline">Compare against</label><div class="input-wrap select-wrap"><select id="baseline" name="baseline" aria-label="Baseline speed"><option value="45">45 mph</option><option value="50">50 mph</option><option value="55">55 mph</option><option value="60">60 mph</option><option value="65">65 mph</option><option value="70" selected>70 mph</option><option value="75">75 mph</option><option value="80">80 mph</option></select></div>
           <p id="input-error" class="error" role="alert" hidden></p>
           <button type="reset" class="text-button">↺ Reset to defaults</button>
@@ -36,7 +46,7 @@
       <section class="results-area" aria-label="Trip comparison">
         <div class="card comparison-card">
           <div class="section-title"><h2>Find your cruising speed</h2><span class="step">02 / COMPARE</span></div>
-          <div class="speed-heading"><span>What happens at</span><strong><span id="selected-speed">65</span> <small>mph</small></strong><span id="speed-tag" class="pill">5 mph slower</span></div>
+          <div class="speed-heading"><span>What happens at</span><strong><span id="selected-speed">65</span> <small class="speed-unit">mph</small></strong><span id="speed-tag" class="pill">5 mph slower</span></div>
           <div id="speed-buttons" class="speed-buttons" role="group" aria-label="Choose a speed to compare"></div>
           <div class="metrics" aria-live="polite" aria-atomic="true">
             <div><p id="cost-label">Fuel savings</p><strong id="cost-delta">—</strong><span id="selected-cost">—</span></div>
@@ -53,8 +63,8 @@
       </section>
     </div>
     <section class="card table-card">
-      <div class="section-title"><div><h2>Every speed, side by side</h2><p class="muted">All differences are relative to <span id="table-baseline">70</span> mph.</p></div><button id="export" class="export-button" type="button">↓ Export CSV</button></div>
-      <div class="table-scroll"><table><caption class="sr-only">Estimated speed, fuel economy, trip duration, fuel cost, gallons, savings, extra time, and hourly savings compared with your baseline.</caption><thead><tr><th scope="col">Speed</th><th scope="col">Est. MPG</th><th scope="col">Trip time</th><th scope="col">Fuel cost</th><th scope="col">Gallons</th><th scope="col">Savings <small>vs baseline</small></th><th scope="col">Extra time <small>vs baseline</small></th><th scope="col">Savings / extra hr</th></tr></thead><tbody id="results-table"></tbody></table></div>
+      <div class="section-title"><div><h2>Every speed, side by side</h2><p class="muted">All differences are relative to <span id="table-baseline">70</span> <span class="speed-unit">mph</span>.</p></div><button id="export" class="export-button" type="button">↓ Export CSV</button></div>
+      <div class="table-scroll"><table><caption class="sr-only">Estimated speed, fuel economy, trip duration, fuel cost, gallons, savings, extra time, and hourly savings compared with your baseline.</caption><thead><tr><th scope="col">Speed</th><th scope="col" id="economy-heading">Est. MPG</th><th scope="col">Trip time</th><th scope="col">Fuel cost</th><th scope="col" id="volume-heading">US gallons</th><th scope="col">Savings <small>vs baseline</small></th><th scope="col">Extra time <small>vs baseline</small></th><th scope="col">Savings / extra hr</th></tr></thead><tbody id="results-table"></tbody></table></div>
       <p class="table-note">Negative savings mean higher fuel cost. Negative extra time means a shorter trip. Hourly savings apply only to slower trips.</p>
     </section>
     <details class="model-notes"><summary>How the estimates work</summary><div>
@@ -63,7 +73,7 @@
       <p>The supplied formula is an illustrative estimate, not a validated prediction for your vehicle. Actual results depend on traffic, terrain, wind, vehicle, and driving conditions. Trip times assume a constant speed without stops. Choose speeds appropriate to posted limits and conditions.</p>
     </div></details>
   </main>
-  <footer><span>MILE & MINUTE</span><p>More perspective. Fewer surprises at the pump.</p><span>All calculations stay in your browser.</span></footer>
+  <footer><span>MILE & MINUTE</span><p>More perspective. Fewer surprises at the pump.</p><span>Calculations stay in your browser; vehicle lookup uses FuelEconomy.gov.</span></footer>
   <noscript><p class="noscript">Enable JavaScript to use the fuel and time calculator.</p></noscript>
 </body>
 </html>

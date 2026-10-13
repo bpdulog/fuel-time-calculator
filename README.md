@@ -43,7 +43,9 @@ The local project is initialized on branch `main`. Follow steps 3–6 above afte
 - Selected-speed summary of cost savings, time differences, and hourly trade-offs.
 - Fuel cost chart, full comparison table, and CSV export.
 - Responsive layout, keyboard controls, and input validation.
-- Calculations run locally in the browser; no network requests or analytics.
+- Calculations run locally in the browser; optional vehicle lookup requests FuelEconomy.gov data. No analytics.
+- Switch between miles / US gallons / MPG and kilometers / liters / L/100 km, including CSV exports. Switching preserves the trip and converts fuel price; currency remains USD.
+- Optional year, make, model, and configuration picker uses EPA combined MPG as an editable base estimate. Internet is required; manual entry works if the service is unavailable. Electric, hydrogen, and natural-gas vehicles are excluded because their energy units do not fit this model.
 
 ## Calculation details
 

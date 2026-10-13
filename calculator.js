@@ -50,12 +50,17 @@
         : 0
     }));
   }
-  function toCsv(rows) {
-    const header = ['Speed (mph)', 'Est MPG', 'Time (hrs:min)', 'Time (min)', 'Fuel Cost ($)', 'Gallons', 'Cost Savings vs Baseline ($)', 'Extra Time vs Baseline (min)', 'Implied Value of Time ($/hr)'];
-    const lines = rows.map(row => [row.speed, row.mpg.toFixed(1), row.duration, row.minutes.toFixed(1), row.cost.toFixed(2), row.gallons.toFixed(2), row.savings.toFixed(2), row.extraMinutes.toFixed(1), row.hourlyValue.toFixed(2)].join(','));
+  const KM_PER_MILE = 1.609344, LITERS_PER_GALLON = 3.785411784;
+  const ECONOMY_FACTOR = 100 * LITERS_PER_GALLON / KM_PER_MILE;
+  function displayRow(row, metric = false) {
+    return metric ? { ...row, speed: round(row.speed * KM_PER_MILE, 1), mpg: ECONOMY_FACTOR / row.mpg, gallons: row.gallons * LITERS_PER_GALLON } : row;
+  }
+  function toCsv(rows, metric = false) {
+    const header = [metric ? 'Speed (km/h)' : 'Speed (mph)', metric ? 'Est L/100 km' : 'Est MPG', 'Time (hrs:min)', 'Time (min)', 'Fuel Cost ($)', metric ? 'Liters' : 'US Gallons', 'Cost Savings vs Baseline ($)', 'Extra Time vs Baseline (min)', 'Implied Value of Time ($/hr)'];
+    const lines = rows.map(original => { const row = displayRow(original, metric); return [row.speed, row.mpg.toFixed(1), row.duration, row.minutes.toFixed(1), row.cost.toFixed(2), row.gallons.toFixed(2), row.savings.toFixed(2), row.extraMinutes.toFixed(1), row.hourlyValue.toFixed(2)].join(','); });
     return [header.join(','), ...lines].join('\r\n') + '\r\n';
   }
-  const api = Object.freeze({ SPEEDS, DEFAULTS, calculate, toCsv });
+  const api = Object.freeze({ SPEEDS, DEFAULTS, calculate, toCsv, displayRow, KM_PER_MILE, LITERS_PER_GALLON, ECONOMY_FACTOR });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FuelCalculator = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
