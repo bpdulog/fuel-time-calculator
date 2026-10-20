@@ -38,6 +38,8 @@ The local project is initialized on branch `main`. Follow steps 3–6 above afte
 
 ## Features
 
+The EV speed tab has its own sidebar with electricity price, EV efficiency, and a battery electric vehicle selector. The bundled EPA catalog works offline and excludes hybrids and plug-in hybrids. Vehicle selection fills EPA highway efficiency as an editable starting estimate; it is not a measurement at 65 mph. Regenerate the catalog from FuelEconomy.gov with `./scripts/update-ev-catalog.ps1` in PowerShell.
+
 - Adjustable distance, base MPG, fuel price, and baseline speed.
 - Eight speeds from 45 to 80 mph, using the original Python MPG formula.
 - Selected-speed summary of cost savings, time differences, and hourly trade-offs.

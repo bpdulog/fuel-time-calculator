@@ -53,6 +53,26 @@ async function main() {
       await delay(100);
     }
     assert.equal(await evaluate(`document.querySelector('#cost-delta').textContent`), '$9.39');
+    await evaluate(`document.querySelector('#ev-speed-tab').click()`);
+    assert.equal(await evaluate(`document.querySelector('#gas-vehicle-picker').hidden`), true);
+    assert.equal(await evaluate(`document.querySelector('label[for="mpg"]').hidden`), true);
+    assert.equal(await evaluate(`document.querySelector('#price').disabled`), true);
+    assert.equal(await evaluate(`document.querySelector('#units').selectedOptions[0].textContent`), 'Miles / kWh');
+    assert.equal(await evaluate(`document.querySelector('#ev-sidebar-inputs').contains(document.querySelector('#ev-efficiency'))`), true);
+    assert.equal(await evaluate(`document.querySelector('#baseline-detail').textContent.includes('kWh')`), true);
+    await evaluate(`document.querySelector('#ev-vehicle-year').value = '2024'; document.querySelector('#ev-vehicle-year').dispatchEvent(new Event('change')); document.querySelector('#ev-vehicle-make').value = 'Toyota'; document.querySelector('#ev-vehicle-make').dispatchEvent(new Event('change'))`);
+    assert.equal(await evaluate(`Array.from(document.querySelector('#ev-vehicle-model').options).some(option => /Prius|Camry|RAV4/i.test(option.textContent))`), false);
+    assert.equal(await evaluate(`document.querySelector('#ev-vehicle-model').options.length > 1`), true);
+    await evaluate(`document.querySelector('#ev-vehicle-model').selectedIndex = 1; document.querySelector('#ev-vehicle-model').dispatchEvent(new Event('change')); document.querySelector('#ev-vehicle-options').selectedIndex = 1; document.querySelector('#ev-vehicle-options').dispatchEvent(new Event('change'))`);
+    assert.equal(await evaluate(`document.querySelector('#ev-vehicle-status').textContent.includes('EPA highway')`), true);
+    const evEfficiency = await evaluate(`document.querySelector('#ev-efficiency').valueAsNumber`);
+    await evaluate(`document.querySelector('#units').value = 'metric'; document.querySelector('#units').dispatchEvent(new Event('change'))`);
+    assert.equal(await evaluate(`document.querySelector('#ev-efficiency-unit').textContent`), 'kWh/100 km');
+    assert.ok(Math.abs(await evaluate(`document.querySelector('#ev-efficiency').valueAsNumber`) - 160.9344 / evEfficiency) < 0.00001);
+    await evaluate(`document.querySelector('#ev-tab').click()`);
+    assert.equal(await evaluate(`document.querySelector('.ev-inputs').contains(document.querySelector('#ev-efficiency'))`), true);
+    assert.equal(await evaluate(`document.querySelector('#gas-vehicle-picker').hidden`), false);
+    await evaluate(`document.querySelector('#speed-tab').click(); document.querySelector('#trip-form').reset(); new Promise(resolve => setTimeout(resolve,20))`);
     assert.equal(await evaluate(`document.querySelectorAll('#results-table tr').length`), 8);
     assert.equal(await evaluate(`document.querySelector('#time-delta').textContent`), '19.8 min');
     await evaluate(`document.querySelector('[data-speed="80"]').click()`);

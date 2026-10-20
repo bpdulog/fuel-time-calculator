@@ -13,6 +13,8 @@
   let baselineSpeed = 70;
   let valid = false;
   let selectedEvSpeed = 65;
+  let activeTab = 'speed';
+  const evEfficiency = () => metric ? 100 * KM_PER_MILE / $('ev-efficiency').valueAsNumber : $('ev-efficiency').valueAsNumber;
   const evInputGroup = document.querySelector('.ev-inputs');
   const evSpeedButtons = SPEEDS.map(speed => {
     const button = document.createElement('button');
@@ -25,7 +27,7 @@
     if (!valid) return;
     try {
       const distance = $('distance').valueAsNumber / (metric ? KM_PER_MILE : 1);
-      const evRows = calculateEvSpeeds({ distance, milesPerKwh: $('ev-efficiency').valueAsNumber, electricityPrice: $('ev-price').valueAsNumber, baseline: baselineSpeed });
+      const evRows = calculateEvSpeeds({ distance, milesPerKwh: evEfficiency(), electricityPrice: $('ev-price').valueAsNumber, baseline: baselineSpeed });
       const selected = evRows.find(row => row.speed === selectedEvSpeed);
       const extra = selected.extraMinutes;
       $('ev-selected-speed').textContent = speedValue(selectedEvSpeed);
@@ -40,13 +42,22 @@
       evSpeedButtons.forEach((button, index) => { button.textContent = speedValue(SPEEDS[index]); button.setAttribute('aria-label', `Compare ${speedValue(SPEEDS[index])} ${speedUnit()}`); button.setAttribute('aria-pressed', String(SPEEDS[index] === selectedEvSpeed)); });
       $('ev-speed-results').innerHTML = evRows.map(row => `<tr class="${row.speed === selectedEvSpeed ? 'selected' : ''}"><td>${speedValue(row.speed)} ${speedUnit()}</td><td>${metric ? `${number(100 * KM_PER_MILE / row.efficiency)} kWh/100 km` : `${number(row.efficiency)} mi/kWh`}</td><td>${number(row.kwh)} kWh</td><td>${number(row.minutes)} min</td><td>${money(row.cost)}</td><td class="${row.savings < 0 ? 'negative' : 'positive'}">${money(row.savings)}</td><td>${row.extraMinutes > 0 ? '+' : ''}${number(row.extraMinutes)} min</td><td>${row.hourlyValue === null ? '—' : money(row.hourlyValue)}</td></tr>`).join('');
       $('ev-speed-error').hidden = true;
-    } catch (error) { $('ev-speed-error').textContent = error.message; $('ev-speed-error').hidden = false; $('ev-speed-results').replaceChildren(); }
+      if (activeTab === 'ev-speed') {
+        const base = evRows.find(row => row.speed === baselineSpeed);
+        $('baseline-cost').textContent = money(base.cost);
+        $('baseline-time').textContent = `${number(base.minutes / 60)} hours driving`;
+        $('baseline-detail').textContent = `${speedValue(baselineSpeed)} ${speedUnit()} / ${number(base.kwh)} kWh / electricity cost`;
+      }
+    } catch (error) {
+      $('ev-speed-error').textContent = error.message; $('ev-speed-error').hidden = false; $('ev-speed-results').replaceChildren();
+      if (activeTab === 'ev-speed') { $('baseline-cost').textContent = '—'; $('baseline-time').textContent = '—'; $('baseline-detail').textContent = 'Enter valid EV efficiency and electricity price.'; }
+    }
   }
   function renderEv() {
     if (!valid) return;
     try {
       const gas = rows.find(row => row.speed === baselineSpeed);
-      const options = { distance: $('distance').valueAsNumber / (metric ? KM_PER_MILE : 1), gasCost: gas.cost, driveMinutes: gas.minutes, milesPerKwh: $('ev-efficiency').valueAsNumber, batteryKwh: $('ev-battery').valueAsNumber, startSoc: $('ev-start').valueAsNumber, arrivalSoc: $('ev-reserve').valueAsNumber, electricityPrice: $('ev-price').valueAsNumber };
+      const options = { distance: $('distance').valueAsNumber / (metric ? KM_PER_MILE : 1), gasCost: gas.cost, driveMinutes: gas.minutes, milesPerKwh: evEfficiency(), batteryKwh: $('ev-battery').valueAsNumber, startSoc: $('ev-start').valueAsNumber, arrivalSoc: $('ev-reserve').valueAsNumber, electricityPrice: $('ev-price').valueAsNumber };
       const results = [['Level 2', $('ev-l2').valueAsNumber], ['Level 3', $('ev-l3').valueAsNumber]].map(([label, chargeKw]) => ({ label, ...compareEv({ ...options, chargeKw }) }));
       const duration = minutes => { const rounded = Math.round(minutes); return `${Math.floor(rounded / 60)}h ${String(rounded % 60).padStart(2, '0')}m`; };
       $('ev-results').innerHTML = `<tr><td>Gas car</td><td>${money(gas.cost)}</td><td>0 min</td><td>${duration(gas.minutes)}</td><td>—</td><td>—</td></tr>` + results.map(row => `<tr><td>EV · ${row.label}</td><td>${money(row.evCost)}</td><td>${number(row.chargingMinutes)} min</td><td>${duration(row.totalMinutes)}</td><td class="${row.savings >= 0 ? 'positive' : 'negative'}">${money(row.savings)}</td><td>${row.savingsPerHour === null ? '—' : `${money(row.savingsPerHour)}/hr`}</td></tr>`).join('');
@@ -55,6 +66,7 @@
     } catch (error) { $('ev-error').textContent = error.message; $('ev-error').hidden = false; $('ev-results').replaceChildren(); $('ev-detail').textContent = ''; }
   }
   function selectTab(tab) {
+    activeTab = tab;
     for (const name of ['speed', 'ev', 'ev-speed']) {
       const active = name === tab;
       $(`${name}-tab`).setAttribute('aria-selected', String(active));
@@ -62,8 +74,24 @@
       $(`${name}-panel`).hidden = !active;
     }
     $('speed-table').hidden = tab !== 'speed';
-    if (tab === 'ev') { $('ev-panel').insertBefore(evInputGroup, $('ev-error')); renderEv(); }
-    if (tab === 'ev-speed') { $('ev-speed-inputs').append(evInputGroup); renderEvSpeeds(); }
+    const electric = tab === 'ev-speed';
+    $('gas-vehicle-picker').hidden = electric;
+    $('ev-sidebar').hidden = !electric;
+    for (const id of ['mpg', 'price']) {
+      document.querySelector(`label[for="${id}"]`).hidden = electric;
+      $(id).closest('.input-wrap').hidden = electric;
+      $(id).disabled = electric;
+    }
+    $('mpg-help').hidden = electric;
+    $('gas-model-notes').hidden = electric;
+    if (electric) {
+      $('ev-sidebar-inputs').append($('ev-efficiency-field'), $('ev-price-field'));
+    } else {
+      evInputGroup.prepend($('ev-efficiency-field'));
+      evInputGroup.insertBefore($('ev-price-field'), $('ev-l2').closest('label'));
+    }
+    if (tab === 'ev') $('ev-panel').insertBefore(evInputGroup, $('ev-error'));
+    unitLabels(); update();
   }
   for (const name of ['speed', 'ev', 'ev-speed']) $(`${name}-tab`).addEventListener('click', () => selectTab(name));
   document.querySelector('.tabs').addEventListener('keydown', event => { if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return; event.preventDefault(); const names = ['speed', 'ev', 'ev-speed']; const current = names.findIndex(name => $(`${name}-tab`).getAttribute('aria-selected') === 'true'); const next = names[(current + (event.key === 'ArrowRight' ? 1 : 2)) % 3]; selectTab(next); $(`${next}-tab`).focus(); });
@@ -139,7 +167,7 @@
   function update() {
     try {
       baselineSpeed = Number($('baseline').value);
-      rows = calculate({ distance: $('distance').valueAsNumber / (metric ? KM_PER_MILE : 1), baseMpg: metric ? ECONOMY_FACTOR / $('mpg').valueAsNumber : $('mpg').valueAsNumber, fuelPrice: $('price').valueAsNumber * (metric ? LITERS_PER_GALLON : 1), baseline: baselineSpeed });
+      rows = calculate({ distance: $('distance').valueAsNumber / (metric ? KM_PER_MILE : 1), baseMpg: activeTab === 'ev-speed' ? 28 : metric ? ECONOMY_FACTOR / $('mpg').valueAsNumber : $('mpg').valueAsNumber, fuelPrice: activeTab === 'ev-speed' ? 3.5 : $('price').valueAsNumber * (metric ? LITERS_PER_GALLON : 1), baseline: baselineSpeed });
       valid = true;
       $('input-error').hidden = true;
       $('export').disabled = false;
@@ -155,7 +183,7 @@
       $('ev-speed-error').textContent = 'Correct the trip inputs to update this comparison.';
       $('ev-speed-error').hidden = false;
       $('ev-speed-results').replaceChildren();
-      $('input-error').textContent = `${metric ? 'Enter valid values within the distance, L/100 km, and price-per-liter limits.' : error.message} Results below show the last valid inputs.`;
+      $('input-error').textContent = activeTab === 'ev-speed' ? `Enter a trip distance between ${number(metric ? KM_PER_MILE : 1)} and ${number(100000 * (metric ? KM_PER_MILE : 1))} ${metric ? 'km' : 'miles'}.` : `${metric ? 'Enter valid values within the distance, L/100 km, and price-per-liter limits.' : error.message} Results below show the last valid inputs.`;
       $('input-error').hidden = false;
       $('export').disabled = true;
       speedButtons.forEach(button => { button.disabled = true; });
@@ -163,9 +191,9 @@
       document.querySelectorAll('.results-area, .table-card').forEach(element => { element.style.opacity = '.5'; });
     }
   }
-  $('trip-form').addEventListener('input', event => { if (event.target.id !== 'units' && !event.target.id.startsWith('vehicle-')) update(); });
+  $('trip-form').addEventListener('input', event => { if (event.target.id !== 'units' && !event.target.id.includes('vehicle-')) update(); });
   $('trip-form').addEventListener('submit', event => event.preventDefault());
-  $('trip-form').addEventListener('reset', () => { selectedSpeed = 65; metric = false; resetVehicle(); setTimeout(() => { unitLabels(); update(); }, 0); });
+  $('trip-form').addEventListener('reset', () => { selectedSpeed = 65; selectedEvSpeed = 65; metric = false; resetVehicle(); setTimeout(() => { $('ev-efficiency').value = 3.5; $('ev-price').value = 0.2; resetEvVehicle(); unitLabels(); update(); }, 0); });
   $('results-table').addEventListener('click', event => {
     const button = event.target.closest('button[data-speed]');
     if (!button || !valid) return;
@@ -185,6 +213,54 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   const vehicleFields = ['year', 'make', 'model', 'options'];
+  const evVehicles = window.EvVehicles?.vehicles || [];
+  function evCandidates(index) {
+    return evVehicles.filter(vehicle => vehicleFields.slice(0, Math.min(index, 3)).every(field => String(vehicle[field]) === $(`ev-vehicle-${field}`).value));
+  }
+  function evMenu(index) {
+    const select = $(`ev-vehicle-${vehicleFields[index]}`);
+    select.replaceChildren(new Option(`Choose ${index === 3 ? 'configuration' : vehicleFields[index]}`, ''));
+    const candidates = evCandidates(index);
+    if (index === 3) {
+      candidates.forEach(vehicle => select.add(new Option(`${vehicle.configuration || 'Electric drive'} (EPA ${vehicle.id})`, vehicle.id)));
+    } else {
+      const values = [...new Set(candidates.map(vehicle => String(vehicle[vehicleFields[index]])))];
+      values.sort(index === 0 ? (a, b) => Number(b) - Number(a) : (a, b) => a.localeCompare(b));
+      values.forEach(value => select.add(new Option(value, value)));
+    }
+    select.disabled = select.options.length === 1;
+  }
+  function resetEvVehicle() {
+    evMenu(0);
+    vehicleFields.slice(1).forEach(field => {
+      const select = $(`ev-vehicle-${field}`);
+      select.replaceChildren(new Option(`Choose ${field === 'options' ? 'configuration' : field}`, ''));
+      select.disabled = true;
+    });
+    $('ev-vehicle-status').textContent = evVehicles.length ? `Choose a battery electric vehicle. EPA catalog updated ${window.EvVehicles.updated}.` : 'EV catalog unavailable. Enter efficiency manually.';
+  }
+  vehicleFields.forEach((field, index) => {
+    $(`ev-vehicle-${field}`).addEventListener('change', () => {
+      vehicleFields.slice(index + 1).forEach(child => {
+        const select = $(`ev-vehicle-${child}`);
+        select.replaceChildren(new Option(`Choose ${child === 'options' ? 'configuration' : child}`, ''));
+        select.disabled = true;
+      });
+      if (index < 3) {
+        if ($(`ev-vehicle-${field}`).value) evMenu(index + 1);
+        $('ev-vehicle-status').textContent = 'Choose your EV configuration to fill in efficiency.';
+        return;
+      }
+      const vehicle = evVehicles.find(item => item.id === $('ev-vehicle-options').value);
+      if (!vehicle) return;
+      const consumption = vehicle.highwayKwhPer100Miles || vehicle.combinedKwhPer100Miles;
+      if (!(consumption > 0)) { $('ev-vehicle-status').textContent = 'EPA efficiency is unavailable for this EV. Enter efficiency manually.'; return; }
+      $('ev-efficiency').value = metric ? consumption / KM_PER_MILE : 100 / consumption;
+      $('ev-vehicle-status').textContent = `Using EPA ${vehicle.highwayKwhPer100Miles > 0 ? 'highway' : 'combined'} ${number(consumption)} kWh/100 miles as an editable starting estimate. Adjust it for your driving at 65 mph (104.6 km/h).`;
+      update();
+    });
+  });
+  resetEvVehicle();
   let lookupController;
   let retryLookup = () => loadVehicle(0);
   function clearMenu(index) {
@@ -250,6 +326,8 @@
     if (event.target.open && $('vehicle-year').options.length === 1) loadVehicle(0);
   });
   function unitLabels() {
+    [...$('units').options].forEach(option => { option.textContent = activeTab === 'ev-speed' ? (option.value === 'metric' ? 'Kilometers / kWh' : 'Miles / kWh') : (option.value === 'metric' ? 'Kilometers / liters' : 'Miles / US gallons'); });
+    $('ev-efficiency-unit').textContent = metric ? 'kWh/100 km' : 'mi/kWh';
     $('distance-unit').textContent = metric ? 'km' : 'miles';
     $('economy-unit').textContent = metric ? 'L/100 km' : 'mpg';
     $('price-unit').textContent = metric ? '/ liter' : '/ US gallon';
@@ -270,6 +348,7 @@
       if (Number.isFinite($(id).valueAsNumber)) $(id).value = $(id).valueAsNumber * (next ? factor : 1 / factor);
     }
     if ($('mpg').valueAsNumber > 0) $('mpg').value = ECONOMY_FACTOR / $('mpg').valueAsNumber;
+    if ($('ev-efficiency').valueAsNumber > 0) $('ev-efficiency').value = 100 * KM_PER_MILE / $('ev-efficiency').valueAsNumber;
     metric = next; unitLabels(); update();
   });
   update();

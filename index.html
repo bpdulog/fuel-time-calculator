@@ -9,6 +9,7 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
   <script src="calculator.js" defer></script>
+  <script src="ev-vehicles.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -25,7 +26,7 @@
         <div class="section-title"><h2>Your trip</h2><span class="step">01 / INPUTS</span></div>
         <form id="trip-form">
           <label for="units">Units</label><div class="input-wrap"><select id="units"><option value="us">Miles / US gallons</option><option value="metric">Kilometers / liters</option></select></div>
-          <details class="vehicle-picker"><summary>Use my vehicle?s fuel economy</summary>
+          <details id="gas-vehicle-picker" class="vehicle-picker"><summary>Use my vehicle's fuel economy</summary>
             <label for="vehicle-year">Model year</label><div class="input-wrap"><select id="vehicle-year"><option value="">Choose year</option></select></div>
             <label for="vehicle-make">Make</label><div class="input-wrap"><select id="vehicle-make" disabled><option value="">Choose make</option></select></div>
             <label for="vehicle-model">Model</label><div class="input-wrap"><select id="vehicle-model" disabled><option value="">Choose model</option></select></div>
@@ -34,6 +35,17 @@
             <button id="vehicle-retry" type="button" class="text-button" hidden>Retry vehicle lookup</button>
             <p class="field-help">Data: <a href="https://www.fueleconomy.gov/feg/ws/index.shtml" target="_blank" rel="noopener">FuelEconomy.gov</a>. Internet required. The speed model remains illustrative.</p>
           </details>
+          <div id="ev-sidebar" hidden>
+            <details id="ev-vehicle-picker" class="vehicle-picker"><summary>Use my EV's efficiency</summary>
+              <label for="ev-vehicle-year">Model year</label><div class="input-wrap"><select id="ev-vehicle-year"><option value="">Choose year</option></select></div>
+              <label for="ev-vehicle-make">Make</label><div class="input-wrap"><select id="ev-vehicle-make" disabled><option value="">Choose make</option></select></div>
+              <label for="ev-vehicle-model">Model</label><div class="input-wrap"><select id="ev-vehicle-model" disabled><option value="">Choose model</option></select></div>
+              <label for="ev-vehicle-options">EV configuration</label><div class="input-wrap"><select id="ev-vehicle-options" disabled><option value="">Choose configuration</option></select></div>
+              <p id="ev-vehicle-status" class="field-help" role="status">Choose a battery electric vehicle to fill in an editable efficiency estimate.</p>
+              <p class="field-help">Battery electric vehicles only. Data: <a href="https://www.fueleconomy.gov/feg/ws/index.shtml" target="_blank" rel="noopener">FuelEconomy.gov</a>. EPA highway efficiency is a starting estimate, not a measurement at 65 mph.</p>
+            </details>
+            <div id="ev-sidebar-inputs"></div>
+          </div>
           <label for="distance">Trip distance</label><div class="input-wrap"><input id="distance" name="distance" type="number" min="1" max="100000" step="any" value="300" required><span id="distance-unit">miles</span></div>
           <label for="mpg">Base fuel economy</label><div class="input-wrap"><input id="mpg" name="mpg" type="number" min="1" max="200" step="any" value="28" required aria-describedby="mpg-help"><span id="economy-unit">mpg</span></div>
           <p class="field-help" id="mpg-help">Model input before speed adjustments; not the MPG at your baseline speed.</p>
@@ -66,11 +78,11 @@
         <div class="section-title"><div><h2>Gas car vs electric car</h2><p class="muted">Same trip distance and baseline driving speed as your gas trip.</p></div><span class="step">02 / COMPARE</span></div>
         <p class="ev-note">Enter average charging power for each level. Charging curves vary by vehicle and charger, so the default rates are editable estimates.</p>
         <div class="ev-inputs">
-          <label>EV efficiency <span class="input-wrap"><input id="ev-efficiency" type="number" min="0.1" step="any" value="3.5"><span>mi/kWh</span></span></label>
+          <label id="ev-efficiency-field">EV efficiency at 65 mph <span class="input-wrap"><input id="ev-efficiency" type="number" min="0.1" step="any" value="3.5"><span id="ev-efficiency-unit">mi/kWh</span></span></label>
           <label>Usable battery <span class="input-wrap"><input id="ev-battery" type="number" min="1" step="any" value="75"><span>kWh</span></span></label>
           <label>Starting charge <span class="input-wrap"><input id="ev-start" type="number" min="1" max="100" step="any" value="80"><span>%</span></span></label>
           <label>Arrival reserve <span class="input-wrap"><input id="ev-reserve" type="number" min="0" max="99" step="any" value="10"><span>%</span></span></label>
-          <label>Electricity price <span class="input-wrap"><span class="prefix">$</span><input id="ev-price" type="number" min="0" step="any" value="0.20"><span>/kWh</span></span></label>
+          <label id="ev-price-field">Electricity price <span class="input-wrap"><span class="prefix">$</span><input id="ev-price" type="number" min="0" step="any" value="0.20"><span>/kWh</span></span></label>
           <label>Level 2 average speed <span class="input-wrap"><input id="ev-l2" type="number" min="0.1" step="any" value="7.2"><span>kW</span></span></label>
           <label>Level 3 average speed <span class="input-wrap"><input id="ev-l3" type="number" min="0.1" step="any" value="100"><span>kW</span></span></label>
         </div>
@@ -85,7 +97,7 @@
         <div class="speed-heading"><span>At</span><strong><span id="ev-selected-speed">65</span> <small class="speed-unit">mph</small></strong><span id="ev-speed-tag" class="pill"></span></div>
         <div id="ev-speed-buttons" class="speed-buttons" role="group" aria-label="Choose an EV speed to compare"></div>
         <div class="metrics" aria-live="polite"><div><p>Energy savings</p><strong id="ev-speed-savings">—</strong><span id="ev-speed-cost"></span></div><div><p>Extra travel time</p><strong id="ev-speed-time">—</strong><span id="ev-speed-duration"></span></div><div><p>Savings per extra hour</p><strong id="ev-speed-hourly">—</strong><span id="ev-speed-efficiency"></span></div></div>
-        <p class="insight">The efficiency entered above is at 65 mph. Estimates use a simple speed model; real EV consumption also depends on weather, terrain, and driving conditions.</p>
+        <p class="insight">The efficiency in the sidebar is at 65 mph (104.6 km/h). Estimates use a simple speed model; real EV consumption also depends on weather, terrain, and driving conditions.</p>
         <div class="table-scroll"><table><thead><tr><th>Speed</th><th>Efficiency</th><th>Energy</th><th>Drive time</th><th>Energy cost</th><th>Savings vs baseline</th><th>Extra time</th><th>Savings / extra hr</th></tr></thead><tbody id="ev-speed-results"></tbody></table></div>
         <p class="table-note">This view compares driving speed only. Charging stops and charging time are shown in Gas vs electric.</p>
       </section>
@@ -95,7 +107,7 @@
       <div class="table-scroll"><table><caption class="sr-only">Estimated speed, fuel economy, trip duration, fuel cost, gallons, savings, extra time, and hourly savings compared with your baseline.</caption><thead><tr><th scope="col">Speed</th><th scope="col" id="economy-heading">Est. MPG</th><th scope="col">Trip time</th><th scope="col">Fuel cost</th><th scope="col" id="volume-heading">US gallons</th><th scope="col">Savings <small>vs baseline</small></th><th scope="col">Extra time <small>vs baseline</small></th><th scope="col">Savings / extra hr</th></tr></thead><tbody id="results-table"></tbody></table></div>
       <p class="table-note">Negative savings mean higher fuel cost. Negative extra time means a shorter trip. Hourly savings apply only to slower trips.</p>
     </section>
-    <details class="model-notes"><summary>How the estimates work</summary><div>
+    <details id="gas-model-notes" class="model-notes"><summary>How the estimates work</summary><div>
       <p>This calculator uses the supplied speed-efficiency model: 1.05 × base MPG at 45–50 mph, 1.12 × at 55 mph, then <code>1.12 × (1 − 0.018d − 0.0004d²)</code> above 55 mph, where <code>d = speed − 55</code>. Estimated economy has a floor of 10 MPG.</p>
       <p>Travel time is distance ÷ speed. Fuel cost is distance ÷ estimated MPG × fuel price. As in the original Python calculation, costs and minutes are rounded before calculating baseline differences. Savings per extra hour is fuel savings divided by additional travel hours.</p>
       <p>The supplied formula is an illustrative estimate, not a validated prediction for your vehicle. Actual results depend on traffic, terrain, wind, vehicle, and driving conditions. Trip times assume a constant speed without stops. Choose speeds appropriate to posted limits and conditions.</p>
