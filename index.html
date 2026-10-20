@@ -19,6 +19,7 @@
       <h1>Worth the <em>rush?</em></h1>
       <p class="lead">A little extra speed can cost more than you think. Compare your fuel bill with the minutes you save.</p>
     </section>
+    <div class="tabs" role="tablist" aria-label="Calculator view"><button id="speed-tab" type="button" role="tab" aria-controls="speed-panel" aria-selected="true">Gas speed trade-off</button><button id="ev-tab" type="button" role="tab" aria-controls="ev-panel" aria-selected="false" tabindex="-1">Gas vs electric</button><button id="ev-speed-tab" type="button" role="tab" aria-controls="ev-speed-panel" aria-selected="false" tabindex="-1">EV speed trade-off</button></div>
     <div class="workspace">
       <aside class="card trip-card">
         <div class="section-title"><h2>Your trip</h2><span class="step">01 / INPUTS</span></div>
@@ -43,7 +44,7 @@
         </form>
         <div class="baseline-box"><p class="eyebrow">YOUR BASELINE TRIP</p><div><strong id="baseline-cost">—</strong><span id="baseline-time">—</span></div><p id="baseline-detail">Calculating…</p></div>
       </aside>
-      <section class="results-area" aria-label="Trip comparison">
+      <section class="results-area" id="speed-panel" role="tabpanel" aria-labelledby="speed-tab" aria-label="Trip comparison">
         <div class="card comparison-card">
           <div class="section-title"><h2>Find your cruising speed</h2><span class="step">02 / COMPARE</span></div>
           <div class="speed-heading"><span>What happens at</span><strong><span id="selected-speed">65</span> <small class="speed-unit">mph</small></strong><span id="speed-tag" class="pill">5 mph slower</span></div>
@@ -61,8 +62,35 @@
           <p class="chart-caption">Select a speed above or a row below to see its trade-off.</p>
         </div>
       </section>
+      <section id="ev-panel" class="card ev-card" role="tabpanel" aria-labelledby="ev-tab" hidden>
+        <div class="section-title"><div><h2>Gas car vs electric car</h2><p class="muted">Same trip distance and baseline driving speed as your gas trip.</p></div><span class="step">02 / COMPARE</span></div>
+        <p class="ev-note">Enter average charging power for each level. Charging curves vary by vehicle and charger, so the default rates are editable estimates.</p>
+        <div class="ev-inputs">
+          <label>EV efficiency <span class="input-wrap"><input id="ev-efficiency" type="number" min="0.1" step="any" value="3.5"><span>mi/kWh</span></span></label>
+          <label>Usable battery <span class="input-wrap"><input id="ev-battery" type="number" min="1" step="any" value="75"><span>kWh</span></span></label>
+          <label>Starting charge <span class="input-wrap"><input id="ev-start" type="number" min="1" max="100" step="any" value="80"><span>%</span></span></label>
+          <label>Arrival reserve <span class="input-wrap"><input id="ev-reserve" type="number" min="0" max="99" step="any" value="10"><span>%</span></span></label>
+          <label>Electricity price <span class="input-wrap"><span class="prefix">$</span><input id="ev-price" type="number" min="0" step="any" value="0.20"><span>/kWh</span></span></label>
+          <label>Level 2 average speed <span class="input-wrap"><input id="ev-l2" type="number" min="0.1" step="any" value="7.2"><span>kW</span></span></label>
+          <label>Level 3 average speed <span class="input-wrap"><input id="ev-l3" type="number" min="0.1" step="any" value="100"><span>kW</span></span></label>
+        </div>
+        <p id="ev-error" class="error" role="alert" hidden></p>
+        <div class="table-scroll"><table><thead><tr><th>Vehicle / charging</th><th>Energy cost</th><th>Charging time</th><th>Total trip time</th><th>Savings vs gas</th><th>Savings per charging hour</th></tr></thead><tbody id="ev-results"></tbody></table></div>
+        <p id="ev-detail" class="table-note"></p>
+      </section>
+      <section id="ev-speed-panel" class="card ev-card" role="tabpanel" aria-labelledby="ev-speed-tab" hidden>
+        <div class="section-title"><div><h2>Find your EV cruising speed</h2><p class="muted">Compare energy cost with driving time at each speed.</p></div><span class="step">02 / COMPARE</span></div>
+        <div id="ev-speed-inputs"></div>
+        <p id="ev-speed-error" class="error" role="alert" hidden></p>
+        <div class="speed-heading"><span>At</span><strong><span id="ev-selected-speed">65</span> <small class="speed-unit">mph</small></strong><span id="ev-speed-tag" class="pill"></span></div>
+        <div id="ev-speed-buttons" class="speed-buttons" role="group" aria-label="Choose an EV speed to compare"></div>
+        <div class="metrics" aria-live="polite"><div><p>Energy savings</p><strong id="ev-speed-savings">—</strong><span id="ev-speed-cost"></span></div><div><p>Extra travel time</p><strong id="ev-speed-time">—</strong><span id="ev-speed-duration"></span></div><div><p>Savings per extra hour</p><strong id="ev-speed-hourly">—</strong><span id="ev-speed-efficiency"></span></div></div>
+        <p class="insight">The efficiency entered above is at 65 mph. Estimates use a simple speed model; real EV consumption also depends on weather, terrain, and driving conditions.</p>
+        <div class="table-scroll"><table><thead><tr><th>Speed</th><th>Efficiency</th><th>Energy</th><th>Drive time</th><th>Energy cost</th><th>Savings vs baseline</th><th>Extra time</th><th>Savings / extra hr</th></tr></thead><tbody id="ev-speed-results"></tbody></table></div>
+        <p class="table-note">This view compares driving speed only. Charging stops and charging time are shown in Gas vs electric.</p>
+      </section>
     </div>
-    <section class="card table-card">
+    <section id="speed-table" class="card table-card">
       <div class="section-title"><div><h2>Every speed, side by side</h2><p class="muted">All differences are relative to <span id="table-baseline">70</span> <span class="speed-unit">mph</span>.</p></div><button id="export" class="export-button" type="button">↓ Export CSV</button></div>
       <div class="table-scroll"><table><caption class="sr-only">Estimated speed, fuel economy, trip duration, fuel cost, gallons, savings, extra time, and hourly savings compared with your baseline.</caption><thead><tr><th scope="col">Speed</th><th scope="col" id="economy-heading">Est. MPG</th><th scope="col">Trip time</th><th scope="col">Fuel cost</th><th scope="col" id="volume-heading">US gallons</th><th scope="col">Savings <small>vs baseline</small></th><th scope="col">Extra time <small>vs baseline</small></th><th scope="col">Savings / extra hr</th></tr></thead><tbody id="results-table"></tbody></table></div>
       <p class="table-note">Negative savings mean higher fuel cost. Negative extra time means a shorter trip. Hourly savings apply only to slower trips.</p>

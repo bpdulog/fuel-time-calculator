@@ -60,7 +60,27 @@
     const lines = rows.map(original => { const row = displayRow(original, metric); return [row.speed, row.mpg.toFixed(1), row.duration, row.minutes.toFixed(1), row.cost.toFixed(2), row.gallons.toFixed(2), row.savings.toFixed(2), row.extraMinutes.toFixed(1), row.hourlyValue.toFixed(2)].join(','); });
     return [header.join(','), ...lines].join('\r\n') + '\r\n';
   }
-  const api = Object.freeze({ SPEEDS, DEFAULTS, calculate, toCsv, displayRow, KM_PER_MILE, LITERS_PER_GALLON, ECONOMY_FACTOR });
+  function compareEv({ distance, gasCost, driveMinutes, milesPerKwh, batteryKwh, startSoc, arrivalSoc, electricityPrice, chargeKw }) {
+    const values = [distance, gasCost, driveMinutes, milesPerKwh, batteryKwh, startSoc, arrivalSoc, electricityPrice, chargeKw];
+    if (values.some(value => !Number.isFinite(value)) || distance <= 0 || gasCost < 0 || driveMinutes < 0 || milesPerKwh <= 0 || batteryKwh <= 0 || startSoc < 0 || startSoc > 100 || arrivalSoc < 0 || arrivalSoc >= startSoc || electricityPrice < 0 || chargeKw <= 0) throw new RangeError('Enter valid EV values. Start charge must exceed arrival reserve.');
+    const tripKwh = distance / milesPerKwh;
+    const chargeKwh = Math.max(0, tripKwh - batteryKwh * (startSoc - arrivalSoc) / 100);
+    const chargingMinutes = chargeKwh / chargeKw * 60;
+    const evCost = tripKwh * electricityPrice;
+    return { tripKwh, chargeKwh, chargingMinutes, evCost, savings: gasCost - evCost, totalMinutes: driveMinutes + chargingMinutes, savingsPerHour: chargingMinutes > 0 ? (gasCost - evCost) / (chargingMinutes / 60) : null };
+  }
+  function calculateEvSpeeds({ distance, milesPerKwh, electricityPrice, baseline }) {
+    if (!Number.isFinite(distance) || distance <= 0 || !Number.isFinite(milesPerKwh) || milesPerKwh <= 0 || !Number.isFinite(electricityPrice) || electricityPrice < 0 || !SPEEDS.includes(baseline)) throw new RangeError('Enter valid EV efficiency, electricity price, trip distance, and baseline speed.');
+    // Illustrative road-load model: 70% speed-independent, 30% aerodynamic at 65 mph.
+    const row = speed => {
+      const rate = (0.7 + 0.3 * (speed / 65) ** 2) / milesPerKwh;
+      const kwh = distance * rate;
+      return { speed, efficiency: 1 / rate, kwh, cost: kwh * electricityPrice, minutes: distance / speed * 60 };
+    };
+    const base = row(baseline);
+    return SPEEDS.map(speed => { const value = row(speed); const extraMinutes = value.minutes - base.minutes; const savings = base.cost - value.cost; return { ...value, extraMinutes, savings, hourlyValue: extraMinutes > 0 ? savings / (extraMinutes / 60) : null }; });
+  }
+  const api = Object.freeze({ SPEEDS, DEFAULTS, calculate, toCsv, displayRow, compareEv, calculateEvSpeeds, KM_PER_MILE, LITERS_PER_GALLON, ECONOMY_FACTOR });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FuelCalculator = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

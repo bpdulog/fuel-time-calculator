@@ -1,6 +1,28 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { calculate, SPEEDS, toCsv } = require('../calculator.js');
+const { calculate, SPEEDS, toCsv, compareEv, calculateEvSpeeds } = require('../calculator.js');
+test('EV speed comparison anchors efficiency at 65 mph and baseline deltas at selected speed', () => {
+  const rows = calculateEvSpeeds({ distance: 300, milesPerKwh: 3.5, electricityPrice: 0.2, baseline: 70 });
+  const at65 = rows.find(row => row.speed === 65);
+  const at70 = rows.find(row => row.speed === 70);
+  assert.equal(at65.efficiency, 3.5);
+  assert.equal(at70.savings, 0);
+  assert.equal(at70.extraMinutes, 0);
+  assert.ok(at65.savings > 0 && at65.extraMinutes > 0 && at65.hourlyValue > 0);
+  assert.ok(rows.find(row => row.speed === 80).cost > at70.cost);
+});
+test('EV comparison accounts for starting charge and charging rate', () => {
+  const input = { distance: 300, gasCost: 50, driveMinutes: 240, milesPerKwh: 3, batteryKwh: 75, startSoc: 80, arrivalSoc: 10, electricityPrice: 0.2 };
+  const fast = compareEv({ ...input, chargeKw: 100 });
+  const slow = compareEv({ ...input, chargeKw: 10 });
+  assert.equal(fast.tripKwh, 100);
+  assert.equal(fast.chargeKwh, 47.5);
+  assert.equal(fast.evCost, 20);
+  assert.equal(fast.chargingMinutes, 28.5);
+  assert.equal(slow.chargingMinutes, 285);
+  assert.equal(fast.savings, 30);
+  assert.throws(() => compareEv({ ...input, chargeKw: 0 }), RangeError);
+});
 
 // Independent reference output from the user's Python calculation.
 const expected = [
