@@ -124,11 +124,39 @@
       return `<line x1="${left}" y1="${ordinate}" x2="${width - right}" y2="${ordinate}" stroke="#e5e7dd" stroke-dasharray="3 5"/><text x="${left - 9}" y="${ordinate + 4}" text-anchor="end">${label}</text>`;
     }).join('');
     const ticks = rows.map(row => `<text x="${x(row.speed)}" y="${height - 14}" text-anchor="middle">${speedValue(row.speed)}</text>`).join('');
-    const dots = rows.map(row => `<circle cx="${x(row.speed)}" cy="${y(row.cost)}" r="${row.speed === selectedSpeed ? 6 : 3.5}" fill="${row.speed === selectedSpeed ? '#204d3c' : '#fffefa'}" stroke="#204d3c" stroke-width="2"/>`).join('');
+    const dots = rows.map(row => `<g><circle cx="${x(row.speed)}" cy="${y(row.cost)}" r="${row.speed === selectedSpeed ? 6 : 3.5}" fill="${row.speed === selectedSpeed ? '#204d3c' : '#fffefa'}" stroke="#204d3c" stroke-width="2"/><circle class="chart-point" data-chart-speed="${row.speed}" cx="${x(row.speed)}" cy="${y(row.cost)}" r="14" fill="transparent" tabindex="0" role="img" aria-label="${speedValue(row.speed)} ${speedUnit()}: ${money(row.cost)} fuel cost, ${row.duration}, ${economy(row)}"/></g>`).join('');
     const selected = rows.find(row => row.speed === selectedSpeed);
     const anchor = selectedSpeed === 80 ? 'end' : selectedSpeed === 45 ? 'start' : 'middle';
     $('chart').innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">Fuel cost by driving speed</title><desc id="chart-desc">At ${speedValue(selectedSpeed)} ${speedUnit()}, estimated fuel cost is ${money(selected.cost)}. Full values are available in the comparison table.</desc><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a6be77" stop-opacity=".3"/><stop offset="100%" stop-color="#a6be77" stop-opacity="0"/></linearGradient></defs>${grid}<polygon points="${left},${height-bottom} ${points} ${width-right},${height-bottom}" fill="url(#area)"/><line x1="${x(baselineSpeed)}" x2="${x(baselineSpeed)}" y1="${top}" y2="${height-bottom}" stroke="#aeb8a8" stroke-dasharray="4 4"/><polyline points="${points}" fill="none" stroke="#204d3c" stroke-width="2.5" stroke-linejoin="round"/>${dots}<text class="point-label" x="${x(selectedSpeed)}" y="${y(selected.cost)-13}" text-anchor="${anchor}">${money(selected.cost)}</text>${ticks}</svg>`;
+    $('chart').querySelector('svg').setAttribute('role', 'group');
+    const tooltip = document.createElement('div');
+    tooltip.id = 'chart-tooltip'; tooltip.className = 'chart-tooltip'; tooltip.role = 'tooltip'; tooltip.hidden = true;
+    $('chart').append(tooltip);
+    const showPoint = point => {
+      const row = rows.find(item => item.speed === Number(point.dataset.chartSpeed));
+      tooltip.replaceChildren();
+      const heading = document.createElement('strong');
+      heading.textContent = `${speedValue(row.speed)} ${speedUnit()} · ${money(row.cost)}`;
+      const detail = document.createElement('span');
+      detail.textContent = `${row.duration} driving · ${economy(row)}`;
+      tooltip.append(heading, detail); tooltip.hidden = false;
+      const chartBounds = $('chart').getBoundingClientRect(), pointBounds = point.getBoundingClientRect();
+      const centerX = pointBounds.left + pointBounds.width / 2 - chartBounds.left;
+      const centerY = pointBounds.top + pointBounds.height / 2 - chartBounds.top;
+      tooltip.style.left = `${Math.max(0, Math.min(centerX - tooltip.offsetWidth / 2, chartBounds.width - tooltip.offsetWidth))}px`;
+      const above = centerY - tooltip.offsetHeight - 14;
+      tooltip.style.top = `${above >= 0 ? above : centerY + 14}px`;
+    };
+    $('chart').querySelectorAll('.chart-point').forEach(point => {
+      point.addEventListener('pointerenter', () => showPoint(point));
+      point.addEventListener('pointerdown', () => showPoint(point));
+      point.addEventListener('focus', () => showPoint(point));
+      point.addEventListener('pointerleave', event => { if (event.pointerType !== 'touch' && document.activeElement !== point) tooltip.hidden = true; });
+      point.addEventListener('blur', () => { tooltip.hidden = true; });
+    });
   }
+  document.addEventListener('pointerdown', event => { if (!event.target.closest('.chart-point')) { const tooltip = $('chart-tooltip'); if (tooltip) tooltip.hidden = true; } });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') { const tooltip = $('chart-tooltip'); if (tooltip) tooltip.hidden = true; } });
   function render() {
     if (!valid) return;
     const selected = rows.find(row => row.speed === selectedSpeed);

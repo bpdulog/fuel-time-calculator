@@ -74,6 +74,20 @@ async function main() {
     assert.equal(await evaluate(`document.querySelector('#gas-vehicle-picker').hidden`), false);
     await evaluate(`document.querySelector('#speed-tab').click(); document.querySelector('#trip-form').reset(); new Promise(resolve => setTimeout(resolve,20))`);
     assert.equal(await evaluate(`document.querySelectorAll('#results-table tr').length`), 8);
+    const point = await evaluate(`(() => { const point = document.querySelector('[data-chart-speed="70"]'); point.scrollIntoView({block:'center'}); const rect = point.getBoundingClientRect(); return {x:rect.left+rect.width/2,y:rect.top+rect.height/2}; })()`);
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
+    assert.equal(await evaluate(`document.querySelector('#chart-tooltip').hidden`), false);
+    assert.equal(await evaluate(`document.querySelector('#chart-tooltip strong').textContent`), '70 mph · $52.32');
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 });
+    assert.equal(await evaluate(`document.querySelector('#chart-tooltip').hidden`), true);
+    await evaluate(`document.querySelector('[data-chart-speed="45"]').focus()`);
+    assert.equal(await evaluate(`document.querySelector('#chart-tooltip strong').textContent`), '45 mph · $35.71');
+    await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))`);
+    assert.equal(await evaluate(`document.querySelector('#chart-tooltip').hidden`), true);
+    await evaluate(`document.activeElement.blur(); document.querySelector('[data-chart-speed="80"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'}))`);
+    assert.equal(await evaluate(`document.querySelector('#chart-tooltip strong').textContent`), '80 mph · $105.00');
+    await evaluate(`document.body.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))`);
+    assert.equal(await evaluate(`document.querySelector('#chart-tooltip').hidden`), true);
     assert.equal(await evaluate(`document.querySelector('#time-delta').textContent`), '19.8 min');
     await evaluate(`document.querySelector('[data-speed="80"]').click()`);
     assert.equal(await evaluate(`document.querySelector('#cost-label').textContent`), 'Extra fuel cost');
@@ -96,6 +110,9 @@ async function main() {
     assert.equal(await evaluate(`document.querySelector('#volume-heading').textContent`), 'Liters');
     assert.equal(await evaluate(`document.querySelector('#baseline-detail').textContent.includes('liters')`), true);
     assert.equal(await evaluate(`document.querySelector('#selected-speed').textContent`), '104.6');
+    await evaluate(`document.querySelector('[data-chart-speed="70"]').focus()`);
+    assert.equal(await evaluate(`document.querySelector('#chart-tooltip strong').textContent`), '112.7 km/h · $52.32');
+    assert.equal(await evaluate(`document.querySelector('#chart-tooltip span').textContent.includes('L/100 km')`), true);
     assert.ok(Math.abs(await evaluate(`document.querySelector('#distance').valueAsNumber`) - 482.8032) < 0.00001);
     await evaluate(`window.fetch = async url => ({ok: true, json: async () => url.includes('menu/year') ? {menuItem: {text:'2024', value:'2024'}} : url.includes('menu/make') ? {menuItem: {text:'Toyota', value:'Toyota'}} : url.includes('menu/model') ? {menuItem: {text:'Camry', value:'Camry'}} : url.includes('menu/options') ? {menuItem: {text:'Automatic', value:'123'}} : {comb08:32, fuelType1:'Regular Gasoline'}}); document.querySelector('.vehicle-picker').open = true; new Promise(resolve => setTimeout(resolve,30))`);
     for (const [field, value] of [['year','2024'], ['make','Toyota'], ['model','Camry'], ['options','123']]) {
